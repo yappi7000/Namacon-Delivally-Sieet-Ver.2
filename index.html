@@ -316,7 +316,7 @@
   <div class="card">
     <h2>現場終了レポート（全期間まとめ）</h2>
     <div class="status" style="margin-bottom:8px;">
-      同じ現場名・施工業者で保存されている全ての日付をまとめて集計します。現場が終わったタイミングでどうぞ。
+      同じ現場名・施工業者で保存されている全ての日付をまとめて集計します（現場名が完全一致しない場合は施工業者だけで拾います）。現場が終わったタイミングでどうぞ。
     </div>
     <div class="btnrow">
       <button class="btn-green" id="siteReportRefreshBtn">📊 レポートを作る</button>
@@ -777,15 +777,22 @@ function getSiteAllDates(){
   const currentContractor = fv('contractor');
   let index = [];
   try{ index = JSON.parse(localStorage.getItem('uchisetsu:_index') || '[]'); }catch(e){}
-  const matched = index.filter(dt=>{
+  const matchBy = (siteRequired, contractorRequired)=> index.filter(dt=>{
     const raw = localStorage.getItem('uchisetsu:' + dt);
     if(!raw) return false;
     let data; try{ data = JSON.parse(raw); }catch(e){ return false; }
     const f = data.fields || {};
-    const siteOk = currentSite ? f.site === currentSite : true;
-    const contractorOk = currentContractor ? f.contractor === currentContractor : true;
+    const siteOk = siteRequired ? f.site === currentSite : true;
+    const contractorOk = contractorRequired ? f.contractor === currentContractor : true;
     return siteOk && contractorOk;
   });
+  // まず現場名＋施工業者の完全一致を試す。1件も無ければ、階数などで現場名の書き方が
+  // 日によって違うケースを考慮して、施工業者だけの一致にフォールバックする
+  // （比較表と同じロジック。現場名は毎回同じ書き方にすれば、こちらのフォールバックは使われない）
+  let matched = matchBy(!!currentSite, !!currentContractor);
+  if(matched.length === 0 && currentContractor){
+    matched = matchBy(false, true);
+  }
   return matched.sort();
 }
 
